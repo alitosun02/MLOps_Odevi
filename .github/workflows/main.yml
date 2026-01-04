@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+   - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Set up Python
+   - name: Set up Python
       uses: actions/setup-python@v3
       with:
         python-version: "3.9"
@@ -24,11 +24,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # GÜNCELLEME: --disable=C0111,C0114 parametresi eklendi.
-    - name: Lint with Pylint
+   - name: Lint with Pylint
       run: |
         pylint src/ tests/ --disable=C0111,C0114 --fail-under=5.0
 
-    - name: Run Unit Tests
+    - name: Run Unit & Integration Tests
       run: |
         pytest tests/
+
+   - name: Build Docker Image
+      run: |
+        docker build -t mlops-service .
+
+   - name: Run Docker Container
+      run: |
+        docker run -d -p 5000:5000 --name mlops-container mlops-service
+        sleep 5  # Konteynerin tamamen açılması için bekle
+
+    - name: Smoke Test
+      run: |
+        echo "Running Smoke Test..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/health)
+        if [ "$response" == "200" ]; then
+          echo "Smoke Test Passed! Service is up."
+        else
+          echo "Smoke Test Failed! Status code: $response"
+          exit 1
+        fi
